@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #4267b2;
+  --color-brand-dark: #34548f;
+  --color-brand-light: #e8f0ff;
+  --color-navy: #243b67;
+  --color-canvas: #f5f7fb;
+  --color-success: #2f806a;
+  --color-success-light: #e3f3ee;
+  --color-danger: #b4423c;
+  --color-danger-light: #fbeceb;
+  --color-warning: #a8701a;
+  --color-warning-light: #fdf3e1;
+  --color-line: #e3e8f2;
+  --color-muted: #6b7a99;
+
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+
+  --shadow-card: 0 1px 2px rgb(36 59 103 / 0.04), 0 4px 16px rgb(36 59 103 / 0.06);
+  --shadow-lift: 0 2px 4px rgb(36 59 103 / 0.06), 0 12px 32px rgb(36 59 103 / 0.12);
+
+  --animate-fade-up: fade-up 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-pulse-ring: pulse-ring 1.6s ease-out infinite;
+
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 rgb(180 66 60 / 0.45); }
+    100% { box-shadow: 0 0 0 14px rgb(180 66 60 / 0); }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    @apply bg-canvas text-navy;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand;
+  }
+}
+
+@utility card {
+  @apply rounded-2xl border border-line bg-white shadow-card;
+}
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-brand text-white shadow-sm hover:bg-brand-dark hover:shadow-md active:scale-[0.98];
+}
+@utility btn-secondary {
+  @apply btn border border-line bg-white text-navy hover:border-brand/40 hover:bg-brand-light/60;
+}
+@utility btn-ghost {
+  @apply btn text-muted hover:bg-brand-light/70 hover:text-navy;
+}
+@utility input {
+  @apply w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-sm text-navy placeholder:text-muted/70 transition focus:border-brand focus:ring-4 focus:ring-brand/15 focus:outline-none;
+}
+@utility input-error {
+  @apply border-danger! focus:border-danger! focus:ring-danger/15!;
+}
+@utility label {
+  @apply mb-1.5 block text-sm font-semibold text-navy;
+}
+
+@media print {
+  aside,
+  header,
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+}
