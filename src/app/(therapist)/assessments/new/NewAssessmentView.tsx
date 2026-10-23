@@ -784,3 +784,5 @@ export function NewAssessmentView() {
     </div>
   );
 }
+
+export default NewAssessmentView;
