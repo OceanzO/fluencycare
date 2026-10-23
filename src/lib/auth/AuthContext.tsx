@@ -16,8 +16,7 @@ interface AuthContextValue {
   isDemoEnabled: boolean;
   isSupabaseConfigured: boolean;
   canSwitchRole: boolean;
-  signInWithPassword: (email: string, password: string, role: Role, next?: string | null) => Promise<SignInResult>;
-  signInDemo: (role: Role) => void;
+  signInWithPassword: (usernameOrEmail: string, password: string, role: Role, next?: string | null) => Promise<SignInResult>;
   signOut: () => Promise<void>;
   switchRole: (role: Role) => void;
 }
@@ -35,8 +34,8 @@ function clearCookie(name: string) {
 }
 
 /**
- * Navigasi penuh (bukan client-side) setelah perubahan sesi agar proxy & server
- * layout membaca cookie terbaru — menghindari state sesi yang basi.
+ * Navigasi penuh setelah perubahan sesi agar proxy & server layout
+ * selalu membaca cookie terbaru.
  */
 function hardNavigate(path: string) {
   window.location.assign(path);
@@ -44,10 +43,10 @@ function hardNavigate(path: string) {
 
 function translateAuthError(message: string): string {
   const m = message.toLowerCase();
-  if (m.includes("invalid login")) return "Email atau kata sandi salah.";
-  if (m.includes("email not confirmed")) return "Email belum dikonfirmasi. Periksa kotak masuk Anda.";
-  if (m.includes("rate limit") || m.includes("too many")) return "Terlalu banyak percobaan. Coba lagi beberapa saat.";
-  if (m.includes("fetch")) return "Tidak dapat terhubung ke server. Periksa koneksi internet.";
+  if (m.includes("invalid login") || m.includes("invalid credentials")) return "Username atau kata sandi tidak valid.";
+  if (m.includes("email not confirmed")) return "Akun belum dikonfirmasi. Periksa kotak masuk email Anda.";
+  if (m.includes("rate limit") || m.includes("too many")) return "Terlalu banyak percobaan login. Coba lagi dalam beberapa saat.";
+  if (m.includes("fetch")) return "Tidak dapat terhubung ke server database. Periksa koneksi internet.";
   return message;
 }
 
@@ -67,41 +66,57 @@ export function AuthProvider({ initialSession, children }: { initialSession: Ses
   }, [session?.mode]);
 
   const signInWithPassword = useCallback<AuthContextValue["signInWithPassword"]>(
-    async (email, password, role, next) => {
+    async (usernameOrEmail, password, role, next) => {
       const destination = safeNextPath(next) ?? homeFor(role);
       const supabase = getSupabaseBrowserClient();
+      const trimmed = usernameOrEmail.trim().toLowerCase();
+      const normalizedEmail = trimmed.includes("@") ? trimmed : `${trimmed}@flunify.id`;
 
       if (supabase) {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error || !data.user) return { error: translateAuthError(error?.message ?? "Gagal masuk.") };
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password,
+        });
+        if (error || !data.user) return { error: translateAuthError(error?.message ?? "Gagal login.") };
         const user = userFromSupabase(data.user);
         if (!canUseRole(user, "supabase", role)) {
           await supabase.auth.signOut();
-          return { error: "Akun ini tidak memiliki akses Mode Admin. Pilih Mode Terapis." };
+          return {
+            error:
+              role === "admin"
+                ? "Akun ini tidak memiliki hak akses Administrator."
+                : "Akun ini tidak memiliki hak akses Terapis.",
+          };
         }
         setCookie(ROLE_COOKIE, role);
         hardNavigate(role === "admin" ? homeFor(role) : destination);
         return {};
       }
 
-      // Mode Demo: hanya menerima kredensial akun demo.
-      const demoUser = Object.values(DEMO_USERS).find((u) => u.email === email.trim().toLowerCase());
-      if (!demoUser || password !== DEMO_PASSWORD) {
-        return { error: `Supabase belum dikonfigurasi. Gunakan akun demo (kata sandi: ${DEMO_PASSWORD}) atau tombol Akses Demo.` };
+      // Fallback lokal terautentikasi (mencocokkan username/role/email)
+      const matchedUser = Object.values(DEMO_USERS).find(
+        (u) =>
+          u.email.toLowerCase() === normalizedEmail ||
+          u.email.toLowerCase().startsWith(trimmed + "@") ||
+          u.role === trimmed ||
+          u.fullName.toLowerCase().includes(trimmed)
+      );
+
+      if (!matchedUser || password !== DEMO_PASSWORD) {
+        return { error: "Username atau kata sandi tidak valid. Silakan periksa kembali." };
       }
-      setCookie(DEMO_COOKIE, demoUser.role);
+
+      if (role === "admin" && matchedUser.role !== "admin") {
+        return { error: "Akun ini tidak memiliki hak akses Administrator." };
+      }
+
+      setCookie(DEMO_COOKIE, matchedUser.role);
       setCookie(ROLE_COOKIE, role);
       hardNavigate(role === "admin" ? homeFor(role) : destination);
       return {};
     },
-    [],
+    []
   );
-
-  const signInDemo = useCallback((role: Role) => {
-    setCookie(DEMO_COOKIE, role);
-    setCookie(ROLE_COOKIE, role);
-    hardNavigate(homeFor(role));
-  }, []);
 
   const signOut = useCallback(async () => {
     const supabase = getSupabaseBrowserClient();
@@ -111,27 +126,21 @@ export function AuthProvider({ initialSession, children }: { initialSession: Ses
     hardNavigate("/login");
   }, [session?.mode]);
 
-  const switchRole = useCallback(
-    (role: Role) => {
-      if (!session || !canUseRole(session.user, session.mode, role)) return;
-      setCookie(ROLE_COOKIE, role);
-      hardNavigate(homeFor(role));
-    },
-    [session],
-  );
+  const switchRole = useCallback((role: Role) => {
+    // Role switcher dinonaktifkan di tampilan utama sesuai kebijakan hak akses terpisah.
+  }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
       isDemoEnabled,
       isSupabaseConfigured,
-      canSwitchRole: !!session && canUseRole(session.user, session.mode, "admin"),
+      canSwitchRole: false, // Tidak dapat di-switch di dashboard utama
       signInWithPassword,
-      signInDemo,
       signOut,
       switchRole,
     }),
-    [session, signInWithPassword, signInDemo, signOut, switchRole],
+    [session, signInWithPassword, signOut, switchRole]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

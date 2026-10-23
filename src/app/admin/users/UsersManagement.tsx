@@ -74,7 +74,7 @@ export function UsersManagement() {
       return;
     }
     if (!repo.addUser) {
-      setFormError("Penambahan akun secara langsung hanya didukung di Mode Demo.");
+      setFormError("Penambahan akun memerlukan integrasi otorisasi admin via Supabase.");
       return;
     }
 

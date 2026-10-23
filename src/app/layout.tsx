@@ -17,6 +17,11 @@ export const metadata: Metadata = {
   },
   description:
     "Flunify — platform dokumentasi asesmen kelancaran bicara: observasi gagap, perekaman sampel bicara, dan perhitungan %SS otomatis untuk terapis wicara. Find your rhythm.",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
