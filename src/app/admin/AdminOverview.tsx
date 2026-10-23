@@ -14,15 +14,16 @@ import {
   FileAudio,
   ClipboardList,
   CheckCircle2,
+  Trash2,
+  X,
+  Loader2,
 } from "lucide-react";
 import { Badge, EmptyState, PageHeader, Skeleton, StatCard } from "@/components/ui";
-import { useAuth } from "@/lib/auth/AuthContext";
 import { useRepository } from "@/lib/data/useRepository";
 import { formatBytes, formatDate, formatDuration, formatPercent } from "@/lib/format";
 import type { Assessment, ManagedUser, MasterData, StorageUsage } from "@/lib/types";
 
 export function AdminOverview() {
-  const { switchRole } = useAuth();
   const repo = useRepository();
 
   const [users, setUsers] = useState<ManagedUser[] | null>(null);
@@ -30,9 +31,14 @@ export function AdminOverview() {
   const [master, setMaster] = useState<MasterData | null>(null);
   const [storage, setStorage] = useState<StorageUsage | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
-  useEffect(() => {
+  // Modal Hapus Asesmen (Hanya Admin)
+  const [deletingAssessment, setDeletingAssessment] = useState<Assessment | null>(null);
+  const [submittingDelete, setSubmittingDelete] = useState(false);
+
+  const loadData = () => {
     let cancelled = false;
     Promise.all([
       repo.listUsers(),
@@ -55,7 +61,36 @@ export function AdminOverview() {
     return () => {
       cancelled = true;
     };
+  };
+
+  useEffect(() => {
+    return loadData();
   }, [repo]);
+
+  const notifySuccess = (msg: string) => {
+    setSuccessNotice(msg);
+    setTimeout(() => setSuccessNotice(null), 4000);
+  };
+
+  async function handleDeleteAssessment() {
+    if (!deletingAssessment) return;
+    setSubmittingDelete(true);
+    try {
+      if (repo.deleteAssessment) {
+        await repo.deleteAssessment(deletingAssessment.id);
+        setAssessments((prev) => (prev ? prev.filter((a) => a.id !== deletingAssessment.id) : null));
+        notifySuccess(`Asesmen klien ${deletingAssessment.clientCode} berhasil dihapus oleh Administrator.`);
+        setDeletingAssessment(null);
+      } else {
+        throw new Error("Penghapusan asesmen tidak didukung pada repositori ini.");
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Gagal menghapus data asesmen.");
+      setDeletingAssessment(null);
+    } finally {
+      setSubmittingDelete(false);
+    }
+  }
 
   const stats = useMemo(() => {
     const uList = users ?? [];
@@ -80,14 +115,14 @@ export function AdminOverview() {
   const filteredAssessments = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = assessments ?? [];
-    if (!q) return list.slice(0, 8);
+    if (!q) return list.slice(0, 10);
     return list
       .filter(
         (a) =>
           a.clientCode.toLowerCase().includes(q) ||
-          a.therapistName.toLowerCase().includes(q),
+          a.therapistName.toLowerCase().includes(q)
       )
-      .slice(0, 8);
+      .slice(0, 10);
   }, [assessments, query]);
 
   const isLoading = users === null || assessments === null;
@@ -95,25 +130,35 @@ export function AdminOverview() {
   return (
     <>
       <PageHeader
-        eyebrow="Mode Administrator"
+        eyebrow="Panel Administrator"
         title="Admin Overview"
         description="Ringkasan sistem, aktivitas asesmen klinis, manajemen pengguna, dan master data."
         actions={
-          <button
-            id="switch-to-therapist"
-            type="button"
-            onClick={() => switchRole("therapist")}
-            className="btn-primary"
-          >
-            <Stethoscope className="h-4 w-4" /> Buka Mode Terapis
-          </button>
+          <Link href="/admin/users" className="btn-primary">
+            <Users className="h-4 w-4" /> Kelola Pengguna & Riwayat
+          </Link>
         }
       />
+
+      {successNotice && (
+        <div
+          role="status"
+          className="mb-6 flex items-center justify-between rounded-xl border border-success/20 bg-success-light px-4 py-3 text-sm font-semibold text-success animate-fade-up"
+        >
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            <span>{successNotice}</span>
+          </div>
+          <button type="button" onClick={() => setSuccessNotice(null)} className="text-success/70 hover:text-success">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {error && (
         <div
           role="alert"
-          className="mb-6 flex items-start gap-2 rounded-xl border border-danger/20 bg-danger-light p-4 text-sm text-danger"
+          className="mb-6 flex items-start gap-2 rounded-xl border border-danger/20 bg-danger-light p-4 text-sm text-danger animate-fade-up"
         >
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {error}
         </div>
@@ -147,33 +192,33 @@ export function AdminOverview() {
               label="Penyimpanan Audio"
               value={formatBytes(stats.storageBytes)}
               hint={`${stats.storageFiles} file audio tersimpan`}
-              tone="success"
+              tone="warning"
               delay={120}
             />
             <StatCard
               icon={Database}
-              label="Master Data"
-              value={`${stats.speechTasksCount + stats.disfluencyCount} item`}
-              hint={`${stats.speechTasksCount} tugas, ${stats.disfluencyCount} jenis ketidaklancaran`}
-              tone="warning"
+              label="Item Master Data"
+              value={stats.speechTasksCount + stats.disfluencyCount}
+              hint={`${stats.speechTasksCount} tugas, ${stats.disfluencyCount} jenis disfluency`}
+              tone="success"
               delay={180}
             />
           </>
         )}
       </div>
 
-      {/* Pintasan Modul Admin */}
+      {/* Kartu Manajemen Sistem */}
       <div className="mt-6 grid gap-6 md:grid-cols-2">
         <div className="card p-6 transition-all hover:shadow-lift">
           <div className="flex items-start justify-between">
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-brand-light text-brand">
               <Users className="h-6 w-6" />
             </span>
-            <Badge tone="brand">Kelola Akun</Badge>
+            <Badge tone="brand">Akses Pengguna</Badge>
           </div>
-          <h2 className="mt-4 text-lg font-bold text-navy">Manajemen Pengguna</h2>
+          <h2 className="mt-4 text-lg font-bold text-navy">Manajemen Pengguna & Riwayat</h2>
           <p className="mt-1 text-sm text-muted">
-            Kelola akun terapis dan mahasiswa, tinjau status aktif, serta pantau jumlah asesmen yang dikerjakan.
+            Kelola akun terapis wicara, reset kata sandi, hapus akun, dan pantau riwayat login serta audit keamanan.
           </p>
           <Link
             href="/admin/users"
@@ -208,7 +253,9 @@ export function AdminOverview() {
         <div className="flex flex-col gap-3 border-b border-line p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="font-bold text-navy">Asesmen Klinis Terbaru</h2>
-            <p className="text-xs text-muted">Seluruh asesmen yang tercatat dari semua terapis dan mahasiswa.</p>
+            <p className="text-xs text-muted">
+              Seluruh asesmen yang tercatat. Penghapusan data asesmen hanya dapat dilakukan oleh Administrator.
+            </p>
           </div>
           <label className="relative block sm:w-64">
             <span className="sr-only">Cari kode klien atau terapis</span>
@@ -241,7 +288,7 @@ export function AdminOverview() {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
+            <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="bg-canvas/70 text-xs font-bold tracking-wide text-muted uppercase">
                 <tr>
                   <th className="px-5 py-3">Kode Klien</th>
@@ -250,6 +297,7 @@ export function AdminOverview() {
                   <th className="px-5 py-3">Suku Kata</th>
                   <th className="px-5 py-3">%SS</th>
                   <th className="px-5 py-3">Audio</th>
+                  <th className="px-5 py-3 text-right">Aksi Administrator</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -281,6 +329,18 @@ export function AdminOverview() {
                         <Badge tone="muted">Tidak ada</Badge>
                       )}
                     </td>
+                    <td className="px-5 py-3.5 text-right">
+                      <button
+                        id={`delete-assessment-${a.id}`}
+                        type="button"
+                        onClick={() => setDeletingAssessment(a)}
+                        className="btn border border-danger/20 py-1 px-2.5 text-xs text-danger hover:bg-danger-light inline-flex items-center gap-1.5 font-semibold"
+                        title="Hapus asesmen klinis"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>Hapus</span>
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -288,6 +348,74 @@ export function AdminOverview() {
           </div>
         )}
       </section>
+
+      {/* ============================================================== */}
+      {/* MODAL KONFIRMASI HAPUS ASESMEN (ADMIN ONLY)                    */}
+      {/* ============================================================== */}
+      {deletingAssessment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy/40 backdrop-blur-sm animate-fade-up">
+          <div className="card w-full max-w-md p-6 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-danger-light text-danger">
+                <Trash2 className="h-5 w-5" />
+              </span>
+              <div>
+                <h3 className="font-bold text-navy text-lg">Konfirmasi Hapus Asesmen</h3>
+                <p className="mt-1 text-xs text-muted leading-relaxed">
+                  Apakah Anda yakin ingin menghapus data asesmen klien{" "}
+                  <strong className="text-navy font-semibold">{deletingAssessment.clientCode}</strong>?
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-line bg-canvas/60 p-3.5 text-xs space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-muted">Tanggal:</span>
+                <span className="font-semibold text-navy">{formatDate(deletingAssessment.assessmentDate)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted">Terapis:</span>
+                <span className="font-semibold text-navy">{deletingAssessment.therapistName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted">Hasil %SS:</span>
+                <span className="font-bold text-brand">{formatPercent(deletingAssessment.ssPercentage)}</span>
+              </div>
+              {deletingAssessment.audio && (
+                <div className="flex justify-between">
+                  <span className="text-muted">Sampel Audio:</span>
+                  <span className="font-medium text-success">
+                    Tersimpan ({formatDuration(deletingAssessment.audio.durationSeconds)})
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <p className="mt-3 text-[11px] text-danger/80">
+              Perhatian: Tindakan ini permanen dan hanya dapat dilakukan oleh Administrator. Data yang dihapus tidak dapat dipulihkan.
+            </p>
+
+            <div className="flex items-center justify-end gap-2 mt-5 pt-4 border-t border-line">
+              <button
+                type="button"
+                onClick={() => setDeletingAssessment(null)}
+                className="btn border border-line bg-white hover:bg-canvas text-xs py-2 px-4"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={submittingDelete}
+                onClick={handleDeleteAssessment}
+                className="btn bg-danger text-white hover:bg-danger/90 text-xs py-2 px-4 font-bold"
+              >
+                {submittingDelete ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                Hapus Asesmen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

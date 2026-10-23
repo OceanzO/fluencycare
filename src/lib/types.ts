@@ -65,11 +65,26 @@ export type AccountStatus = "active" | "inactive";
 export interface ManagedUser {
   id: string;
   fullName: string;
+  username: string;
   email: string;
+  password?: string;
   accountType: AccountType;
   status: AccountStatus;
   assessmentCount: number;
   createdAt: string;
+  lastLoginAt?: string | null;
+}
+
+export interface LoginLog {
+  id: string;
+  username: string;
+  fullName?: string;
+  role: Role;
+  status: "success" | "failed";
+  ipAddress: string;
+  userAgent: string;
+  timestamp: string;
+  message?: string;
 }
 
 export interface MasterData {

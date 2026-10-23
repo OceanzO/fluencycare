@@ -1,9 +1,10 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { DEMO_COOKIE, DEMO_PASSWORD, DEMO_USERS, homeFor, ROLE_COOKIE } from "@/lib/constants";
+import { DEFAULT_CREDENTIALS, DEMO_COOKIE, DEMO_USERS, homeFor, ROLE_COOKIE } from "@/lib/constants";
 import { isDemoEnabled, isSupabaseConfigured } from "@/lib/env";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { demoRepository } from "@/lib/data/demo-repository";
 import { canUseRole, safeNextPath, userFromSupabase } from "./session";
 import type { Role, Session } from "@/lib/types";
 
@@ -71,16 +72,35 @@ export function AuthProvider({ initialSession, children }: { initialSession: Ses
       const supabase = getSupabaseBrowserClient();
       const trimmed = usernameOrEmail.trim().toLowerCase();
       const normalizedEmail = trimmed.includes("@") ? trimmed : `${trimmed}@flunify.id`;
+      const clientUA = typeof navigator !== "undefined" ? navigator.userAgent : "Browser";
 
       if (supabase) {
         const { data, error } = await supabase.auth.signInWithPassword({
           email: normalizedEmail,
           password,
         });
-        if (error || !data.user) return { error: translateAuthError(error?.message ?? "Gagal login.") };
+        if (error || !data.user) {
+          await demoRepository.recordLoginLog?.({
+            username: trimmed,
+            role,
+            status: "failed",
+            ipAddress: "127.0.0.1",
+            userAgent: clientUA,
+            message: "Gagal autentikasi Supabase",
+          });
+          return { error: translateAuthError(error?.message ?? "Gagal login.") };
+        }
         const user = userFromSupabase(data.user);
         if (!canUseRole(user, "supabase", role)) {
           await supabase.auth.signOut();
+          await demoRepository.recordLoginLog?.({
+            username: trimmed,
+            role,
+            status: "failed",
+            ipAddress: "127.0.0.1",
+            userAgent: clientUA,
+            message: "Akses ditolak: role tidak sesuai",
+          });
           return {
             error:
               role === "admin"
@@ -88,29 +108,104 @@ export function AuthProvider({ initialSession, children }: { initialSession: Ses
                 : "Akun ini tidak memiliki hak akses Terapis.",
           };
         }
+        await demoRepository.recordLoginLog?.({
+          username: trimmed,
+          fullName: user.fullName,
+          role,
+          status: "success",
+          ipAddress: "127.0.0.1",
+          userAgent: clientUA,
+          message: "Autentikasi Supabase berhasil",
+        });
         setCookie(ROLE_COOKIE, role);
         hardNavigate(role === "admin" ? homeFor(role) : destination);
         return {};
       }
 
-      // Fallback lokal terautentikasi (mencocokkan username/role/email)
-      const matchedUser = Object.values(DEMO_USERS).find(
-        (u) =>
-          u.email.toLowerCase() === normalizedEmail ||
-          u.email.toLowerCase().startsWith(trimmed + "@") ||
-          u.role === trimmed ||
-          u.fullName.toLowerCase().includes(trimmed)
-      );
+      // 1. Cek akun bawaan sistem:
+      let matchedRole: Role | null = null;
+      let matchedName = "";
 
-      if (!matchedUser || password !== DEMO_PASSWORD) {
+      if (
+        (trimmed === DEFAULT_CREDENTIALS.admin.username.toLowerCase() ||
+          trimmed === DEFAULT_CREDENTIALS.admin.email.toLowerCase() ||
+          normalizedEmail === DEFAULT_CREDENTIALS.admin.email.toLowerCase()) &&
+        password === DEFAULT_CREDENTIALS.admin.password
+      ) {
+        matchedRole = "admin";
+        matchedName = DEFAULT_CREDENTIALS.admin.fullName;
+      } else if (
+        (trimmed === DEFAULT_CREDENTIALS.therapist.username.toLowerCase() ||
+          trimmed === DEFAULT_CREDENTIALS.therapist.email.toLowerCase() ||
+          normalizedEmail === DEFAULT_CREDENTIALS.therapist.email.toLowerCase()) &&
+        password === DEFAULT_CREDENTIALS.therapist.password
+      ) {
+        matchedRole = "therapist";
+        matchedName = DEFAULT_CREDENTIALS.therapist.fullName;
+      } else {
+        // 2. Cek akun dinamis yang ditambahkan/diubah admin di penyimpanan lokal:
+        try {
+          const raw = window.localStorage.getItem("fc_demo_users");
+          if (raw) {
+            const storedUsers: Array<{
+              fullName: string;
+              username: string;
+              email: string;
+              password?: string;
+              accountType: string;
+              status: string;
+            }> = JSON.parse(raw);
+            const found = storedUsers.find(
+              (u) =>
+                u.status === "active" &&
+                (u.username?.toLowerCase() === trimmed ||
+                  u.email?.toLowerCase() === normalizedEmail ||
+                  u.email?.toLowerCase() === trimmed) &&
+                (u.password === password || (!u.password && password === DEFAULT_CREDENTIALS.therapist.password))
+            );
+            if (found) {
+              matchedRole = found.accountType === "admin" ? "admin" : "therapist";
+              matchedName = found.fullName;
+            }
+          }
+        } catch {}
+      }
+
+      if (!matchedRole) {
+        await demoRepository.recordLoginLog?.({
+          username: trimmed,
+          role,
+          status: "failed",
+          ipAddress: "127.0.0.1 (Lokal)",
+          userAgent: clientUA,
+          message: "Username atau kata sandi tidak cocok",
+        });
         return { error: "Username atau kata sandi tidak valid. Silakan periksa kembali." };
       }
 
-      if (role === "admin" && matchedUser.role !== "admin") {
+      if (role === "admin" && matchedRole !== "admin") {
+        await demoRepository.recordLoginLog?.({
+          username: trimmed,
+          role,
+          status: "failed",
+          ipAddress: "127.0.0.1 (Lokal)",
+          userAgent: clientUA,
+          message: "Akses ditolak: akun bukan admin",
+        });
         return { error: "Akun ini tidak memiliki hak akses Administrator." };
       }
 
-      setCookie(DEMO_COOKIE, matchedUser.role);
+      await demoRepository.recordLoginLog?.({
+        username: trimmed,
+        fullName: matchedName,
+        role: matchedRole,
+        status: "success",
+        ipAddress: "127.0.0.1 (Lokal)",
+        userAgent: clientUA,
+        message: "Login berhasil",
+      });
+
+      setCookie(DEMO_COOKIE, matchedRole);
       setCookie(ROLE_COOKIE, role);
       hardNavigate(role === "admin" ? homeFor(role) : destination);
       return {};

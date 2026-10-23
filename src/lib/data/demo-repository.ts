@@ -1,14 +1,15 @@
 import { DEFAULT_MASTER_DATA } from "../constants";
 import { uid } from "../format";
 import { computeSS } from "../ss";
-import type { Assessment, ManagedUser, MasterData } from "../types";
+import type { Assessment, LoginLog, ManagedUser, MasterData } from "../types";
 import type { Repository } from "./repository";
-import { SEED_ASSESSMENTS, SEED_USERS } from "./seed";
+import { SEED_ASSESSMENTS, SEED_LOGIN_LOGS, SEED_USERS } from "./seed";
 
 const KEYS = {
   assessments: "fc_demo_assessments",
   users: "fc_demo_users",
   master: "fc_demo_master",
+  logs: "fc_demo_login_logs",
 } as const;
 
 function read<T>(key: string, fallback: T): T {
@@ -55,6 +56,14 @@ export const demoRepository: Repository = {
     return assessment;
   },
 
+  async deleteAssessment(id) {
+    const all = read<Assessment[]>(KEYS.assessments, SEED_ASSESSMENTS);
+    write(
+      KEYS.assessments,
+      all.filter((a) => a.id !== id)
+    );
+  },
+
   async listUsers() {
     const users = read<ManagedUser[]>(KEYS.users, SEED_USERS);
     const assessments = await demoRepository.listAssessments();
@@ -64,27 +73,85 @@ export const demoRepository: Repository = {
     }));
   },
 
-  addUser: async ({ fullName, email, accountType }) => {
+  addUser: async ({ fullName, username, email, password, accountType }) => {
     const users = read<ManagedUser[]>(KEYS.users, SEED_USERS);
-    if (users.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
-      throw new Error("Email sudah terdaftar.");
+    const cleanUsername = username.trim().toLowerCase();
+    const finalEmail = (email?.trim() || `${cleanUsername}@flunify.id`).toLowerCase();
+
+    if (users.some((u) => u.username.toLowerCase() === cleanUsername)) {
+      throw new Error(`Username '${cleanUsername}' sudah digunakan.`);
     }
+    if (users.some((u) => u.email.toLowerCase() === finalEmail)) {
+      throw new Error(`Email '${finalEmail}' sudah digunakan.`);
+    }
+
     const user: ManagedUser = {
       id: uid(),
-      fullName,
-      email,
+      fullName: fullName.trim(),
+      username: cleanUsername,
+      email: finalEmail,
+      password: password || "Terapis@Flunify2026",
       accountType,
       status: "active",
       assessmentCount: 0,
       createdAt: new Date().toISOString(),
+      lastLoginAt: null,
     };
     write(KEYS.users, [...users, user]);
     return user;
   },
 
+  async updateUser(id, updates) {
+    const users = read<ManagedUser[]>(KEYS.users, SEED_USERS);
+    const target = users.find((u) => u.id === id);
+    if (!target) throw new Error("Pengguna tidak ditemukan.");
+
+    if (updates.username) {
+      const cleanUsername = updates.username.trim().toLowerCase();
+      if (users.some((u) => u.id !== id && u.username.toLowerCase() === cleanUsername)) {
+        throw new Error(`Username '${cleanUsername}' sudah digunakan pengguna lain.`);
+      }
+    }
+
+    const updatedUser: ManagedUser = {
+      ...target,
+      ...updates,
+      fullName: updates.fullName !== undefined ? updates.fullName.trim() : target.fullName,
+      username: updates.username !== undefined ? updates.username.trim().toLowerCase() : target.username,
+      email: updates.email !== undefined ? updates.email.trim().toLowerCase() : target.email,
+      password: updates.password !== undefined ? updates.password : target.password,
+    };
+
+    write(
+      KEYS.users,
+      users.map((u) => (u.id === id ? updatedUser : u))
+    );
+    return updatedUser;
+  },
+
+  async deleteUser(id) {
+    const users = read<ManagedUser[]>(KEYS.users, SEED_USERS);
+    write(KEYS.users, users.filter((u) => u.id !== id));
+  },
+
   async updateUserStatus(id, status) {
     const users = read<ManagedUser[]>(KEYS.users, SEED_USERS);
     write(KEYS.users, users.map((u) => (u.id === id ? { ...u, status } : u)));
+  },
+
+  async listLoginLogs() {
+    const logs = read<LoginLog[]>(KEYS.logs, SEED_LOGIN_LOGS);
+    return logs.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  },
+
+  async recordLoginLog(log) {
+    const logs = read<LoginLog[]>(KEYS.logs, SEED_LOGIN_LOGS);
+    const newEntry: LoginLog = {
+      ...log,
+      id: uid(),
+      timestamp: new Date().toISOString(),
+    };
+    write(KEYS.logs, [newEntry, ...logs].slice(0, 50)); // Simpan 50 log terakhir
   },
 
   async getMasterData() {

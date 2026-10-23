@@ -14,6 +14,7 @@ $$;
 create table if not exists public.profiles (
   id           uuid primary key references auth.users (id) on delete cascade,
   full_name    text not null default '',
+  username     text unique,
   email        text not null,
   account_type text not null default 'therapist' check (account_type in ('therapist', 'student', 'admin')),
   status       text not null default 'active'    check (status in ('active', 'inactive')),
@@ -26,10 +27,11 @@ returns trigger
 language plpgsql security definer set search_path = public
 as $$
 begin
-  insert into public.profiles (id, full_name, email, account_type)
+  insert into public.profiles (id, full_name, username, email, account_type)
   values (
     new.id,
     coalesce(new.raw_user_meta_data ->> 'full_name', split_part(new.email, '@', 1)),
+    coalesce(new.raw_user_meta_data ->> 'username', split_part(new.email, '@', 1)),
     new.email,
     case when new.raw_app_meta_data ->> 'role' = 'admin' then 'admin'
          when new.raw_user_meta_data ->> 'account_type' = 'student' then 'student'
@@ -135,11 +137,13 @@ create policy "clients_select" on public.clients for select to authenticated usi
 create policy "clients_insert" on public.clients for insert to authenticated with check (true);
 create policy "clients_update" on public.clients for update to authenticated using (true) with check (true);
 
--- Assessments: terapis melihat miliknya, admin melihat semua.
+-- Assessments: terapis melihat miliknya, admin melihat semua. Hanya admin yang berhak menghapus data asesmen.
 create policy "assessments_select" on public.assessments for select to authenticated
   using (therapist_id = auth.uid() or public.is_admin());
 create policy "assessments_insert" on public.assessments for insert to authenticated
   with check (therapist_id = auth.uid());
+create policy "assessments_admin_delete" on public.assessments for delete to authenticated
+  using (public.is_admin());
 
 -- Observations & audio mengikuti hak akses asesmen induk.
 create policy "observations_select" on public.observations for select to authenticated
@@ -160,6 +164,22 @@ create policy "master_admin_insert" on public.master_options for insert to authe
 create policy "master_admin_update" on public.master_options for update to authenticated using (public.is_admin());
 create policy "master_admin_delete" on public.master_options for delete to authenticated using (public.is_admin());
 
+-- ---------- Login History & Audit Logs ----------
+create table if not exists public.login_history (
+  id          uuid primary key default gen_random_uuid(),
+  username    text not null,
+  role        text not null default 'therapist',
+  status      text not null check (status in ('success', 'failed')),
+  ip_address  text,
+  user_agent  text,
+  logged_at   timestamptz not null default now()
+);
+create index if not exists login_history_logged_at_idx on public.login_history (logged_at desc);
+
+alter table public.login_history enable row level security;
+create policy "login_history_insert" on public.login_history for insert to anon, authenticated with check (true);
+create policy "login_history_admin_select" on public.login_history for select to authenticated using (public.is_admin());
+
 -- =====================================================================
 -- Storage: bucket privat untuk sampel audio
 -- Path file: {user_id}/{assessment_id}.webm
@@ -176,10 +196,21 @@ create policy "audio_read_own_or_admin" on storage.objects for select to authent
          and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin()));
 
 -- =====================================================================
--- Menjadikan sebuah akun sebagai ADMIN (ganti email):
+-- KREDENSIAL BAWAAN SISTEM FLUNIFY:
+-- 1. Mode Terapis:
+--    Username: terapis.wicara
+--    Password: Terapis@Flunify2026
+--    Email Supabase: terapis.wicara@flunify.id
+--
+-- 2. Mode Administrator:
+--    Username: aku.admin
+--    Password: Poltekkes@Admin2026
+--    Email Supabase: aku.admin@flunify.id
+--
+-- Menjadikan akun sebagai ADMIN di Supabase Auth:
 --   update auth.users
 --      set raw_app_meta_data = raw_app_meta_data || '{"role":"admin"}'::jsonb
---    where email = 'admin@klinik.id';
---   update public.profiles set account_type = 'admin' where email = 'admin@klinik.id';
--- Pengguna perlu logout & login ulang agar JWT memuat role baru.
+--    where email = 'aku.admin@flunify.id';
+--   update public.profiles set account_type = 'admin' where email = 'aku.admin@flunify.id';
+-- Pengguna perlu logout & login ulang agar JWT memuat role admin baru.
 -- =====================================================================

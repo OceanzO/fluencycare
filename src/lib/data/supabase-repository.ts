@@ -141,6 +141,11 @@ export function createSupabaseRepository(supabase: SupabaseClient): Repository {
       };
     },
 
+    async deleteAssessment(id) {
+      const { error } = await supabase.from("assessments").delete().eq("id", id);
+      if (error) fail("Gagal menghapus asesmen", error);
+    },
+
     async listUsers() {
       const [{ data: profiles, error }, { data: counts }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, email, account_type, status, created_at").order("created_at"),
@@ -153,21 +158,113 @@ export function createSupabaseRepository(supabase: SupabaseClient): Repository {
         (p): ManagedUser => ({
           id: p.id,
           fullName: p.full_name,
+          username: (p as unknown as { username?: string }).username || p.email.split("@")[0],
           email: p.email,
           accountType: p.account_type,
           status: p.status,
           assessmentCount: tally.get(p.id) ?? 0,
           createdAt: p.created_at,
+          lastLoginAt: null,
         }),
       );
     },
 
-    // Membuat akun auth baru membutuhkan service role key (server-side) — undang lewat Supabase Dashboard.
-    addUser: null,
+    addUser: async ({ fullName, username, email, accountType }) => {
+      const cleanUsername = username.trim().toLowerCase();
+      const finalEmail = (email?.trim() || `${cleanUsername}@flunify.id`).toLowerCase();
+      const { data, error } = await supabase
+        .from("profiles")
+        .insert({
+          full_name: fullName.trim(),
+          email: finalEmail,
+          account_type: accountType,
+          status: "active",
+        })
+        .select()
+        .single();
+      if (error || !data) fail("Gagal menambahkan profil", error);
+      return {
+        id: data.id,
+        fullName: data.full_name,
+        username: cleanUsername,
+        email: data.email,
+        accountType: data.account_type,
+        status: data.status,
+        assessmentCount: 0,
+        createdAt: data.created_at,
+      };
+    },
+
+    async updateUser(id, updates) {
+      const payload: Record<string, unknown> = {};
+      if (updates.fullName !== undefined) payload.full_name = updates.fullName;
+      if (updates.email !== undefined) payload.email = updates.email;
+      if (updates.accountType !== undefined) payload.account_type = updates.accountType;
+      if (updates.status !== undefined) payload.status = updates.status;
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .update(payload)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error || !data) fail("Gagal memperbarui pengguna", error);
+      return {
+        id: data.id,
+        fullName: data.full_name,
+        username: (data as unknown as { username?: string }).username || data.email.split("@")[0],
+        email: data.email,
+        accountType: data.account_type,
+        status: data.status,
+        assessmentCount: 0,
+        createdAt: data.created_at,
+      };
+    },
+
+    async deleteUser(id) {
+      const { error } = await supabase.from("profiles").delete().eq("id", id);
+      if (error) fail("Gagal menghapus pengguna", error);
+    },
 
     async updateUserStatus(id, status) {
       const { error } = await supabase.from("profiles").update({ status }).eq("id", id);
       if (error) fail("Gagal memperbarui status", error);
+    },
+
+    async listLoginLogs() {
+      try {
+        const { data, error } = await supabase
+          .from("login_history")
+          .select("id, username, role, status, ip_address, user_agent, logged_at")
+          .order("logged_at", { ascending: false })
+          .limit(50);
+        if (error || !data) return [];
+        return data.map((d: any) => ({
+          id: d.id,
+          username: d.username,
+          role: d.role,
+          status: d.status,
+          ipAddress: d.ip_address ?? "-",
+          userAgent: d.user_agent ?? "-",
+          timestamp: d.logged_at,
+        }));
+      } catch {
+        return [];
+      }
+    },
+
+    async recordLoginLog(log) {
+      try {
+        await supabase.from("login_history").insert({
+          username: log.username,
+          role: log.role,
+          status: log.status,
+          ip_address: log.ipAddress,
+          user_agent: log.userAgent,
+        });
+      } catch {
+        // Toleransi jika tabel login_history belum dibuat di supabase
+      }
     },
 
     async getMasterData() {

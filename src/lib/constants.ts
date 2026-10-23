@@ -2,21 +2,38 @@ import type { AppUser, MasterData, Role } from "./types";
 
 export const DEMO_COOKIE = "fc_demo_session";
 export const ROLE_COOKIE = "fc_active_role";
-export const DEMO_PASSWORD = "demo1234";
+export const DEFAULT_CREDENTIALS = {
+  therapist: {
+    username: "terapis.wicara",
+    password: "Terapis@Flunify2026",
+    email: "terapis.wicara@flunify.id",
+    fullName: "Amanda Pratiwi, A.Md.Kes",
+    title: "Terapis Wicara",
+  },
+  admin: {
+    username: "aku.admin",
+    password: "Poltekkes@Admin2026",
+    email: "aku.admin@flunify.id",
+    fullName: "Admin Sistem Poltekkes",
+    title: "Administrator Sistem",
+  },
+} as const;
+
+export const DEMO_PASSWORD = DEFAULT_CREDENTIALS.therapist.password;
 
 export const DEMO_USERS: Record<Role, AppUser> = {
   therapist: {
     id: "demo-therapist",
-    email: "terapis@flunify.id",
-    fullName: "Amanda Pratiwi",
-    title: "Terapis Wicara",
+    email: DEFAULT_CREDENTIALS.therapist.email,
+    fullName: DEFAULT_CREDENTIALS.therapist.fullName,
+    title: DEFAULT_CREDENTIALS.therapist.title,
     role: "therapist",
   },
   admin: {
     id: "demo-admin",
-    email: "admin@flunify.id",
-    fullName: "Rizky Hidayat",
-    title: "Administrator Klinik",
+    email: DEFAULT_CREDENTIALS.admin.email,
+    fullName: DEFAULT_CREDENTIALS.admin.fullName,
+    title: DEFAULT_CREDENTIALS.admin.title,
     role: "admin",
   },
 };

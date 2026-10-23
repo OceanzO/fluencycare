@@ -182,7 +182,7 @@ export function LoginView({ next }: { next: string | null }) {
                   id="username"
                   type="text"
                   autoComplete="username"
-                  placeholder={role === "admin" ? "Masukkan username admin" : "Masukkan username terapis"}
+                  placeholder="Masukkan username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   aria-invalid={touched && !!usernameError}
@@ -203,7 +203,7 @@ export function LoginView({ next }: { next: string | null }) {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
-                  placeholder="••••••••"
+                  placeholder="Masukkan kata sandi"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   aria-invalid={touched && !!passwordError}
