@@ -127,41 +127,67 @@ alter table public.audio_recordings enable row level security;
 alter table public.master_options   enable row level security;
 
 -- Profiles: lihat diri sendiri, admin lihat & ubah semua.
+drop policy if exists "profiles_select" on public.profiles;
 create policy "profiles_select" on public.profiles for select to authenticated
   using (id = auth.uid() or public.is_admin());
+
+drop policy if exists "profiles_admin_update" on public.profiles;
 create policy "profiles_admin_update" on public.profiles for update to authenticated
   using (public.is_admin()) with check (public.is_admin());
 
 -- Clients: dipakai bersama oleh tim klinik.
+drop policy if exists "clients_select" on public.clients;
 create policy "clients_select" on public.clients for select to authenticated using (true);
+
+drop policy if exists "clients_insert" on public.clients;
 create policy "clients_insert" on public.clients for insert to authenticated with check (true);
+
+drop policy if exists "clients_update" on public.clients;
 create policy "clients_update" on public.clients for update to authenticated using (true) with check (true);
 
 -- Assessments: terapis melihat miliknya, admin melihat semua. Hanya admin yang berhak menghapus data asesmen.
+drop policy if exists "assessments_select" on public.assessments;
 create policy "assessments_select" on public.assessments for select to authenticated
   using (therapist_id = auth.uid() or public.is_admin());
+
+drop policy if exists "assessments_insert" on public.assessments;
 create policy "assessments_insert" on public.assessments for insert to authenticated
   with check (therapist_id = auth.uid());
+
+drop policy if exists "assessments_admin_delete" on public.assessments;
 create policy "assessments_admin_delete" on public.assessments for delete to authenticated
   using (public.is_admin());
 
 -- Observations & audio mengikuti hak akses asesmen induk.
+drop policy if exists "observations_select" on public.observations;
 create policy "observations_select" on public.observations for select to authenticated
   using (exists (select 1 from public.assessments a where a.id = assessment_id
                  and (a.therapist_id = auth.uid() or public.is_admin())));
+
+drop policy if exists "observations_insert" on public.observations;
 create policy "observations_insert" on public.observations for insert to authenticated
   with check (exists (select 1 from public.assessments a where a.id = assessment_id and a.therapist_id = auth.uid()));
 
+drop policy if exists "audio_select" on public.audio_recordings;
 create policy "audio_select" on public.audio_recordings for select to authenticated
   using (exists (select 1 from public.assessments a where a.id = assessment_id
                  and (a.therapist_id = auth.uid() or public.is_admin())));
+
+drop policy if exists "audio_insert" on public.audio_recordings;
 create policy "audio_insert" on public.audio_recordings for insert to authenticated
   with check (exists (select 1 from public.assessments a where a.id = assessment_id and a.therapist_id = auth.uid()));
 
 -- Master data: semua bisa baca, hanya admin yang mengubah.
+drop policy if exists "master_select" on public.master_options;
 create policy "master_select" on public.master_options for select to authenticated using (true);
+
+drop policy if exists "master_admin_insert" on public.master_options;
 create policy "master_admin_insert" on public.master_options for insert to authenticated with check (public.is_admin());
+
+drop policy if exists "master_admin_update" on public.master_options;
 create policy "master_admin_update" on public.master_options for update to authenticated using (public.is_admin());
+
+drop policy if exists "master_admin_delete" on public.master_options;
 create policy "master_admin_delete" on public.master_options for delete to authenticated using (public.is_admin());
 
 -- ---------- Login History & Audit Logs ----------
@@ -177,7 +203,10 @@ create table if not exists public.login_history (
 create index if not exists login_history_logged_at_idx on public.login_history (logged_at desc);
 
 alter table public.login_history enable row level security;
+drop policy if exists "login_history_insert" on public.login_history;
 create policy "login_history_insert" on public.login_history for insert to anon, authenticated with check (true);
+
+drop policy if exists "login_history_admin_select" on public.login_history;
 create policy "login_history_admin_select" on public.login_history for select to authenticated using (public.is_admin());
 
 -- =====================================================================
@@ -188,9 +217,11 @@ insert into storage.buckets (id, name, public)
 values ('audio_samples', 'audio_samples', false)
 on conflict (id) do nothing;
 
+drop policy if exists "audio_upload_own_folder" on storage.objects;
 create policy "audio_upload_own_folder" on storage.objects for insert to authenticated
   with check (bucket_id = 'audio_samples' and (storage.foldername(name))[1] = auth.uid()::text);
 
+drop policy if exists "audio_read_own_or_admin" on storage.objects;
 create policy "audio_read_own_or_admin" on storage.objects for select to authenticated
   using (bucket_id = 'audio_samples'
          and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin()));
