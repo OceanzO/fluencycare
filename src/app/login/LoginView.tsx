@@ -104,7 +104,7 @@ export function LoginView({ next }: { next: string | null }) {
             <ShieldCheck className="h-3.5 w-3.5" /> Portal klinis untuk terapis wicara
           </p>
           <h2 className="text-4xl leading-tight font-extrabold tracking-tight">
-            Dokumentasi asesmen kelancaran bicara, dalam satu alur.
+            Find your rhythm — dokumentasi asesmen kelancaran bicara.
           </h2>
           <p className="mt-4 text-white/75">
             Catat riwayat, observasi ketidaklancaran, rekam sampel bicara, dan hitung %SS secara konsisten — siap ditinjau
@@ -126,7 +126,7 @@ export function LoginView({ next }: { next: string | null }) {
         </div>
 
         <p className="relative text-xs text-white/60">
-          FluencyCare adalah alat bantu dokumentasi — interpretasi & diagnosis tetap menjadi kewenangan terapis.
+          Flunify adalah alat bantu dokumentasi — interpretasi & diagnosis tetap menjadi kewenangan terapis.
         </p>
       </section>
 

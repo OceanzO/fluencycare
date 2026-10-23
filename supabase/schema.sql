@@ -1,5 +1,5 @@
 -- =====================================================================
--- FluencyCare — Skema Supabase (jalankan di Supabase SQL Editor)
+-- Flunify — Skema Supabase (jalankan di Supabase SQL Editor)
 -- =====================================================================
 
 -- ---------- Helper: cek admin dari JWT app_metadata ----------

@@ -120,7 +120,7 @@ export function UsersManagement() {
       <PageHeader
         eyebrow="Administrasi"
         title="Manajemen Pengguna"
-        description="Daftar akun terapis, mahasiswa, dan administrator sistem FluencyCare."
+        description="Daftar akun terapis, mahasiswa, dan administrator sistem Flunify."
         actions={
           repo.addUser && (
             <button

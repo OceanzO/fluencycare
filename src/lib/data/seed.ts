@@ -50,7 +50,7 @@ export const SEED_ASSESSMENTS: Assessment[] = [
 export const SEED_USERS: ManagedUser[] = [
   { id: DEMO_USERS.admin.id, fullName: DEMO_USERS.admin.fullName, email: DEMO_USERS.admin.email, accountType: "admin", status: "active", assessmentCount: 0, createdAt: daysAgo(120) },
   { id: DEMO_USERS.therapist.id, fullName: DEMO_USERS.therapist.fullName, email: DEMO_USERS.therapist.email, accountType: "therapist", status: "active", assessmentCount: 0, createdAt: daysAgo(90) },
-  { id: "u-3", fullName: "Dimas Saputra", email: "dimas@fluencycare.id", accountType: "therapist", status: "active", assessmentCount: 0, createdAt: daysAgo(60) },
-  { id: "u-4", fullName: "Nabila Putri", email: "nabila.mhs@fluencycare.id", accountType: "student", status: "active", assessmentCount: 0, createdAt: daysAgo(30) },
-  { id: "u-5", fullName: "Fajar Ramadhan", email: "fajar.mhs@fluencycare.id", accountType: "student", status: "inactive", assessmentCount: 0, createdAt: daysAgo(25) },
+  { id: "u-3", fullName: "Dimas Saputra", email: "dimas@flunify.id", accountType: "therapist", status: "active", assessmentCount: 0, createdAt: daysAgo(60) },
+  { id: "u-4", fullName: "Nabila Putri", email: "nabila.mhs@flunify.id", accountType: "student", status: "active", assessmentCount: 0, createdAt: daysAgo(30) },
+  { id: "u-5", fullName: "Fajar Ramadhan", email: "fajar.mhs@flunify.id", accountType: "student", status: "inactive", assessmentCount: 0, createdAt: daysAgo(25) },
 ];

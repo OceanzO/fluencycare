@@ -7,14 +7,14 @@ export const DEMO_PASSWORD = "demo1234";
 export const DEMO_USERS: Record<Role, AppUser> = {
   therapist: {
     id: "demo-therapist",
-    email: "terapis@fluencycare.id",
+    email: "terapis@flunify.id",
     fullName: "Amanda Pratiwi",
     title: "Terapis Wicara",
     role: "therapist",
   },
   admin: {
     id: "demo-admin",
-    email: "admin@fluencycare.id",
+    email: "admin@flunify.id",
     fullName: "Rizky Hidayat",
     title: "Administrator Klinik",
     role: "admin",

@@ -12,11 +12,11 @@ const jakarta = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   title: {
-    default: "FluencyCare — Asesmen Kelancaran Bicara",
-    template: "%s · FluencyCare",
+    default: "Flunify — find your rhythm",
+    template: "%s · Flunify",
   },
   description:
-    "Platform dokumentasi asesmen kelancaran bicara: observasi gagap, perekaman sampel bicara, dan perhitungan %SS otomatis untuk terapis wicara.",
+    "Flunify — platform dokumentasi asesmen kelancaran bicara: observasi gagap, perekaman sampel bicara, dan perhitungan %SS otomatis untuk terapis wicara. Find your rhythm.",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
