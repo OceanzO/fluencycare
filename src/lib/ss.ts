@@ -59,3 +59,46 @@ export function validateSS(totalRaw: string, stutteredRaw: string): SSResult {
     percentage: valid ? computeSS(stuttered as number, total as number) : null,
   };
 }
+
+/**
+ * Klasifikasi derajat keparahan berbasis %SS (Stuttering Severity Instrument guideline)
+ */
+export function getSSISeverity(ssPercentage: number): {
+  label: string;
+  tone: "success" | "brand" | "warning" | "danger";
+  description: string;
+} {
+  if (ssPercentage < 3) {
+    return {
+      label: "Sangat Ringan (Very Mild)",
+      tone: "success",
+      description: "< 3% SS: Dalam batas fluktuasi kelancaran normal.",
+    };
+  }
+  if (ssPercentage <= 7) {
+    return {
+      label: "Ringan (Mild)",
+      tone: "brand",
+      description: "3% - 7% SS: Ketidaklancaran tingkat ringan.",
+    };
+  }
+  if (ssPercentage <= 15) {
+    return {
+      label: "Sedang (Moderate)",
+      tone: "warning",
+      description: "8% - 15% SS: Memerlukan intervensi terapi wicara terstruktur.",
+    };
+  }
+  if (ssPercentage <= 25) {
+    return {
+      label: "Berat (Severe)",
+      tone: "danger",
+      description: "16% - 25% SS: Mempengaruhi kelancaran komunikasi secara signifikan.",
+    };
+  }
+  return {
+    label: "Sangat Berat (Very Severe)",
+    tone: "danger",
+    description: "> 25% SS: Memerlukan program terapi klinis intensif.",
+  };
+}
