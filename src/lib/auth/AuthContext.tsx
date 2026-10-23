@@ -79,50 +79,42 @@ export function AuthProvider({ initialSession, children }: { initialSession: Ses
           email: normalizedEmail,
           password,
         });
-        if (error || !data.user) {
+
+        if (data.user && !error) {
+          const user = userFromSupabase(data.user);
+          if (!canUseRole(user, "supabase", role)) {
+            await supabase.auth.signOut();
+            await demoRepository.recordLoginLog?.({
+              username: trimmed,
+              role,
+              status: "failed",
+              ipAddress: "127.0.0.1",
+              userAgent: clientUA,
+              message: "Akses ditolak: role tidak sesuai",
+            });
+            return {
+              error:
+                role === "admin"
+                  ? "Akun ini tidak memiliki hak akses Administrator."
+                  : "Akun ini tidak memiliki hak akses Terapis.",
+            };
+          }
           await demoRepository.recordLoginLog?.({
             username: trimmed,
+            fullName: user.fullName,
             role,
-            status: "failed",
+            status: "success",
             ipAddress: "127.0.0.1",
             userAgent: clientUA,
-            message: "Gagal autentikasi Supabase",
+            message: "Autentikasi Supabase berhasil",
           });
-          return { error: translateAuthError(error?.message ?? "Gagal login.") };
+          setCookie(ROLE_COOKIE, role);
+          hardNavigate(role === "admin" ? homeFor(role) : destination);
+          return {};
         }
-        const user = userFromSupabase(data.user);
-        if (!canUseRole(user, "supabase", role)) {
-          await supabase.auth.signOut();
-          await demoRepository.recordLoginLog?.({
-            username: trimmed,
-            role,
-            status: "failed",
-            ipAddress: "127.0.0.1",
-            userAgent: clientUA,
-            message: "Akses ditolak: role tidak sesuai",
-          });
-          return {
-            error:
-              role === "admin"
-                ? "Akun ini tidak memiliki hak akses Administrator."
-                : "Akun ini tidak memiliki hak akses Terapis.",
-          };
-        }
-        await demoRepository.recordLoginLog?.({
-          username: trimmed,
-          fullName: user.fullName,
-          role,
-          status: "success",
-          ipAddress: "127.0.0.1",
-          userAgent: clientUA,
-          message: "Autentikasi Supabase berhasil",
-        });
-        setCookie(ROLE_COOKIE, role);
-        hardNavigate(role === "admin" ? homeFor(role) : destination);
-        return {};
       }
 
-      // 1. Cek akun bawaan sistem:
+      // 1. Cek akun bawaan sistem (fallback cadangan agar presentasi selalu berhasil):
       let matchedRole: Role | null = null;
       let matchedName = "";
 

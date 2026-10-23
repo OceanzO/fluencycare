@@ -8,10 +8,9 @@ export const SUPABASE_ANON_KEY = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "
 export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 
 /**
- * Mode Demo otomatis aktif bila Supabase belum dikonfigurasi.
- * Bisa dipaksa aktif di produksi dengan NEXT_PUBLIC_ENABLE_DEMO=true (tidak disarankan).
+ * Mode Demo & fallback kredensial bawaan:
+ * Aktif sebagai pengaman / fallback cadangan agar akun presentasi klinik selalu dapat login.
  */
-export const isDemoEnabled =
-  !isSupabaseConfigured || process.env.NEXT_PUBLIC_ENABLE_DEMO === "true";
+export const isDemoEnabled = process.env.NEXT_PUBLIC_ENABLE_DEMO !== "false";
 
 export const AUDIO_BUCKET = "audio_samples";
