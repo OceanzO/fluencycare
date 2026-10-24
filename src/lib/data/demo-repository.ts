@@ -65,7 +65,26 @@ export const demoRepository: Repository = {
   },
 
   async listUsers() {
-    const users = read<ManagedUser[]>(KEYS.users, SEED_USERS);
+    const rawUsers = read<ManagedUser[]>(KEYS.users, SEED_USERS);
+    // Otomatis migrasikan peran 'student' menjadi 'therapist'
+    let migrated = false;
+    const users = rawUsers.map((u) => {
+      if ((u.accountType as string) === "student") {
+        migrated = true;
+        return {
+          ...u,
+          accountType: "therapist" as const,
+          username: u.username.replace(/\.mhs$/, ".wicara"),
+          email: u.email.replace(/\.mhs@/, ".wicara@"),
+        };
+      }
+      return u;
+    });
+
+    if (migrated) {
+      write(KEYS.users, users);
+    }
+
     const assessments = await demoRepository.listAssessments();
     return users.map((u) => ({
       ...u,
@@ -140,18 +159,25 @@ export const demoRepository: Repository = {
   },
 
   async listLoginLogs() {
-    const logs = read<LoginLog[]>(KEYS.logs, SEED_LOGIN_LOGS);
-    return logs.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const allLogs = read<LoginLog[]>(KEYS.logs, SEED_LOGIN_LOGS);
+    // Otomatis hapus riwayat log pengunjung yang melewati 30 hari untuk menghemat storage
+    const validLogs = allLogs.filter((l) => l.timestamp >= thirtyDaysAgo);
+    if (validLogs.length !== allLogs.length) {
+      write(KEYS.logs, validLogs);
+    }
+    return validLogs.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
   },
 
   async recordLoginLog(log) {
-    const logs = read<LoginLog[]>(KEYS.logs, SEED_LOGIN_LOGS);
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const logs = read<LoginLog[]>(KEYS.logs, SEED_LOGIN_LOGS).filter((l) => l.timestamp >= thirtyDaysAgo);
     const newEntry: LoginLog = {
       ...log,
       id: uid(),
       timestamp: new Date().toISOString(),
     };
-    write(KEYS.logs, [newEntry, ...logs].slice(0, 50)); // Simpan 50 log terakhir
+    write(KEYS.logs, [newEntry, ...logs].slice(0, 50));
   },
 
   async getMasterData() {

@@ -233,11 +233,19 @@ export function createSupabaseRepository(supabase: SupabaseClient): Repository {
 
     async listLoginLogs() {
       try {
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        // Otomatis bersihkan catatan riwayat yang telah lewat dari 30 hari untuk menghemat database
+        await supabase
+          .from("login_history")
+          .delete()
+          .lt("logged_at", thirtyDaysAgo);
+
         const { data, error } = await supabase
           .from("login_history")
           .select("id, username, role, status, ip_address, user_agent, logged_at")
+          .gte("logged_at", thirtyDaysAgo)
           .order("logged_at", { ascending: false })
-          .limit(50);
+          .limit(100);
         if (error || !data) return [];
         return data.map((d: any) => ({
           id: d.id,
@@ -255,6 +263,13 @@ export function createSupabaseRepository(supabase: SupabaseClient): Repository {
 
     async recordLoginLog(log) {
       try {
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        // Bersihkan data lampau saat ada entri baru masuk
+        await supabase
+          .from("login_history")
+          .delete()
+          .lt("logged_at", thirtyDaysAgo);
+
         await supabase.from("login_history").insert({
           username: log.username,
           role: log.role,

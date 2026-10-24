@@ -95,14 +95,14 @@ export function AdminOverview() {
   const stats = useMemo(() => {
     const uList = users ?? [];
     const aList = assessments ?? [];
-    const therapists = uList.filter((u) => u.accountType === "therapist").length;
-    const students = uList.filter((u) => u.accountType === "student").length;
+    const therapists = uList.filter((u) => u.accountType === "therapist" || (u.accountType as string) === "student").length;
+    const admins = uList.filter((u) => u.accountType === "admin").length;
     const withAudio = aList.filter((a) => a.audio).length;
 
     return {
       totalUsers: uList.length,
       therapists,
-      students,
+      admins,
       totalAssessments: aList.length,
       withAudio,
       storageBytes: storage?.bytes ?? 0,
@@ -176,7 +176,7 @@ export function AdminOverview() {
               icon={Users}
               label="Total Pengguna"
               value={stats.totalUsers}
-              hint={`${stats.therapists} Terapis, ${stats.students} Mahasiswa`}
+              hint={`${stats.therapists} Terapis, ${stats.admins} Administrator`}
               delay={0}
             />
             <StatCard

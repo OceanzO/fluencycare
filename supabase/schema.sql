@@ -209,6 +209,28 @@ create policy "login_history_insert" on public.login_history for insert to anon,
 drop policy if exists "login_history_admin_select" on public.login_history;
 create policy "login_history_admin_select" on public.login_history for select to authenticated using (public.is_admin());
 
+drop policy if exists "login_history_admin_delete" on public.login_history;
+create policy "login_history_admin_delete" on public.login_history for delete to authenticated using (public.is_admin());
+
+-- Otomatis hapus riwayat login pengunjung/staf yang lebih dari 30 hari untuk menghemat storage
+create or replace function public.purge_old_login_history()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+  delete from public.login_history
+  where logged_at < now() - interval '30 days';
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_purge_old_login_history on public.login_history;
+create trigger trg_purge_old_login_history
+  after insert on public.login_history
+  for each statement
+  execute function public.purge_old_login_history();
+
 -- =====================================================================
 -- Storage: Bucket untuk sampel audio
 -- =====================================================================

@@ -37,7 +37,7 @@ import type { AccountStatus, AccountType, LoginLog, ManagedUser } from "@/lib/ty
 
 const ROLE_LABELS: Record<AccountType, { label: string; tone: "brand" | "navy" | "warning"; icon: typeof Stethoscope }> = {
   therapist: { label: "Terapis Wicara", tone: "brand", icon: Stethoscope },
-  student: { label: "Mahasiswa", tone: "navy", icon: User },
+  student: { label: "Terapis Wicara", tone: "brand", icon: Stethoscope },
   admin: { label: "Administrator", tone: "warning", icon: Shield },
 };
 
@@ -444,20 +444,20 @@ export function UsersManagement() {
               />
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] text-left text-sm">
-                  <thead className="bg-canvas/70 text-xs font-bold tracking-wide text-muted uppercase">
+                <table className="w-full min-w-[720px] text-left text-sm">
+                  <thead className="bg-canvas/70 text-xs font-bold tracking-wide text-muted uppercase border-b border-line">
                     <tr>
-                      <th className="px-5 py-3">Nama Lengkap & Username</th>
-                      <th className="px-5 py-3">Peran Akun</th>
-                      <th className="px-5 py-3">Kredensial Password</th>
-                      <th className="px-5 py-3">Status</th>
-                      <th className="px-5 py-3">Asesmen</th>
-                      <th className="px-5 py-3 text-right">Aksi Administrator</th>
+                      <th className="px-5 py-3.5 whitespace-nowrap">Nama & Username</th>
+                      <th className="px-5 py-3.5 whitespace-nowrap">Peran</th>
+                      <th className="px-5 py-3.5 whitespace-nowrap">Kata Sandi</th>
+                      <th className="px-5 py-3.5 whitespace-nowrap">Status</th>
+                      <th className="px-5 py-3.5 whitespace-nowrap">Total Asesmen</th>
+                      <th className="px-5 py-3.5 whitespace-nowrap text-right">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
                     {filteredUsers.map((u) => {
-                      const roleConfig = ROLE_LABELS[u.accountType];
+                      const roleConfig = ROLE_LABELS[u.accountType] ?? ROLE_LABELS.therapist;
                       const isActionLoading = actionLoadingId === u.id;
                       const isCurrentUser = u.email.toLowerCase() === activeAdminEmail;
                       const passVisible = showPasswords[u.id] ?? false;
@@ -465,13 +465,14 @@ export function UsersManagement() {
 
                       return (
                         <tr key={u.id} className="transition hover:bg-brand-light/30">
+                          {/* Nama & Username (Email dihilangkan agar layout bersih & ringkas) */}
                           <td className="px-5 py-3.5">
                             <div className="flex items-center gap-3">
-                              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-light text-xs font-bold text-brand">
+                              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-light text-xs font-bold text-brand shadow-xs">
                                 {initials(u.fullName)}
                               </span>
-                              <div>
-                                <p className="font-bold text-navy flex items-center gap-1.5">
+                              <div className="min-w-0">
+                                <p className="font-bold text-navy truncate flex items-center gap-1.5">
                                   {u.fullName}
                                   {isCurrentUser && (
                                     <span className="text-[10px] bg-brand/10 text-brand font-bold px-1.5 py-0.5 rounded">
@@ -479,31 +480,31 @@ export function UsersManagement() {
                                     </span>
                                   )}
                                 </p>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="font-mono text-xs font-semibold text-brand">
-                                    @{u.username || u.email.split("@")[0]}
-                                  </span>
-                                  <span className="text-line text-xs">•</span>
-                                  <span className="text-xs text-muted">{u.email}</span>
-                                </div>
+                                <p className="font-mono text-xs font-semibold text-brand mt-0.5">
+                                  @{u.username || u.email.split("@")[0]}
+                                </p>
                               </div>
                             </div>
                           </td>
 
-                          <td className="px-5 py-3.5">
-                            <Badge tone={roleConfig.tone}>{roleConfig.label}</Badge>
+                          {/* Peran Akun (whitespace-nowrap agar tidak turun baris) */}
+                          <td className="px-5 py-3.5 whitespace-nowrap">
+                            <Badge tone={roleConfig.tone} className="whitespace-nowrap font-semibold">
+                              {roleConfig.label}
+                            </Badge>
                           </td>
 
-                          <td className="px-5 py-3.5">
-                            <div className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-canvas/60 px-2 py-1">
-                              <Lock className="h-3.5 w-3.5 text-muted" />
-                              <span className="font-mono text-xs text-navy font-medium">
+                          {/* Kredensial Kata Sandi */}
+                          <td className="px-5 py-3.5 whitespace-nowrap">
+                            <div className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-canvas/60 px-2.5 py-1">
+                              <KeyRound className="h-3 w-3 text-muted" />
+                              <span className="font-mono text-xs text-navy font-medium tracking-wider">
                                 {passVisible ? displayPass : "••••••••"}
                               </span>
                               <button
                                 type="button"
                                 onClick={() => setShowPasswords((prev) => ({ ...prev, [u.id]: !passVisible }))}
-                                className="ml-1 text-muted hover:text-navy"
+                                className="ml-1 text-muted hover:text-navy transition"
                                 title={passVisible ? "Sembunyikan kata sandi" : "Lihat kata sandi"}
                               >
                                 {passVisible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
@@ -511,7 +512,7 @@ export function UsersManagement() {
                               <button
                                 type="button"
                                 onClick={() => handleCopyPassword(u.id, displayPass)}
-                                className="text-muted hover:text-navy"
+                                className="text-muted hover:text-navy transition"
                                 title="Salin kata sandi"
                               >
                                 {copiedId === u.id ? (
@@ -523,30 +524,34 @@ export function UsersManagement() {
                             </div>
                           </td>
 
-                          <td className="px-5 py-3.5">
+                          {/* Status Akun */}
+                          <td className="px-5 py-3.5 whitespace-nowrap">
                             {u.status === "active" ? (
-                              <Badge tone="success">
-                                <UserCheck className="h-3 w-3" /> Aktif
+                              <Badge tone="success" className="gap-1 font-semibold whitespace-nowrap">
+                                <span className="h-1.5 w-1.5 rounded-full bg-success" /> Aktif
                               </Badge>
                             ) : (
-                              <Badge tone="danger">
-                                <UserX className="h-3 w-3" /> Nonaktif
+                              <Badge tone="danger" className="gap-1 font-semibold whitespace-nowrap">
+                                <span className="h-1.5 w-1.5 rounded-full bg-danger" /> Nonaktif
                               </Badge>
                             )}
                           </td>
 
-                          <td className="px-5 py-3.5 font-semibold text-navy text-xs">
-                            {u.assessmentCount} asesmen
+                          {/* Total Asesmen (dalam 1 baris rapi) */}
+                          <td className="px-5 py-3.5 whitespace-nowrap">
+                            <span className="font-bold text-navy text-sm font-mono">{u.assessmentCount}</span>{" "}
+                            <span className="text-muted text-xs">sesi</span>
                           </td>
 
-                          <td className="px-5 py-3.5 text-right">
+                          {/* Aksi Administrator (ukuran proporsional seragam) */}
+                          <td className="px-5 py-3.5 text-right whitespace-nowrap">
                             <div className="inline-flex items-center gap-1.5 justify-end">
                               {/* Tombol Edit / Reset Password */}
                               <button
                                 id={`edit-user-${u.id}`}
                                 type="button"
                                 onClick={() => openEditModal(u)}
-                                className="btn border border-line p-1.5 text-muted hover:border-brand/40 hover:text-brand hover:bg-brand-light"
+                                className="h-8 w-8 grid place-items-center rounded-lg border border-line bg-white text-muted hover:border-brand/40 hover:text-brand hover:bg-brand-light transition"
                                 title="Ubah data & kata sandi"
                               >
                                 <Pencil className="h-3.5 w-3.5" />
@@ -558,15 +563,26 @@ export function UsersManagement() {
                                 type="button"
                                 disabled={isActionLoading || isCurrentUser}
                                 onClick={() => toggleStatus(u)}
-                                className="btn border border-line py-1 px-2.5 text-xs text-navy hover:bg-canvas disabled:opacity-50"
-                                title={u.status === "active" ? "Nonaktifkan akun" : "Aktifkan akun"}
+                                className={cn(
+                                  "h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg border text-xs font-semibold transition disabled:opacity-40",
+                                  u.status === "active"
+                                    ? "border-line bg-white text-muted hover:text-danger hover:border-danger/30 hover:bg-danger-light"
+                                    : "border-success/30 bg-success-light text-success hover:bg-success hover:text-white"
+                                )}
+                                title={u.status === "active" ? "Klik untuk menonaktifkan akun" : "Klik untuk mengaktifkan akun"}
                               >
                                 {isActionLoading ? (
                                   <Loader2 className="h-3 w-3 animate-spin" />
                                 ) : u.status === "active" ? (
-                                  "Nonaktifkan"
+                                  <>
+                                    <UserX className="h-3.5 w-3.5" />
+                                    <span>Nonaktifkan</span>
+                                  </>
                                 ) : (
-                                  "Aktifkan"
+                                  <>
+                                    <UserCheck className="h-3.5 w-3.5" />
+                                    <span>Aktifkan</span>
+                                  </>
                                 )}
                               </button>
 
@@ -576,8 +592,8 @@ export function UsersManagement() {
                                   id={`delete-user-${u.id}`}
                                   type="button"
                                   onClick={() => setDeletingUser(u)}
-                                  className="btn border border-danger/20 p-1.5 text-danger hover:bg-danger-light"
-                                  title="Hapus akun"
+                                  className="h-8 w-8 grid place-items-center rounded-lg border border-danger/20 bg-white text-danger hover:bg-danger-light transition"
+                                  title="Hapus akun permanen"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
@@ -604,6 +620,25 @@ export function UsersManagement() {
             <StatCard icon={History} label="Total Percobaan Login" value={logStats.total} tone="navy" delay={0} />
             <StatCard icon={CheckCircle2} label="Login Berhasil" value={logStats.success} tone="success" delay={50} />
             <StatCard icon={ShieldAlert} label="Percobaan Gagal" value={logStats.failed} tone="warning" delay={100} />
+          </div>
+
+          {/* Banner Kebijakan Retensi Penyimpanan (Otomatis Hapus > 30 Hari) */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-brand/20 bg-brand-light/40 p-4 text-xs">
+            <div className="flex items-center gap-3">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-brand text-white shadow-xs">
+                <ShieldCheck className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="font-bold text-navy text-sm">Kebijakan Retensi Otomatis (30 Hari)</p>
+                <p className="text-muted">
+                  Seluruh riwayat login pengunjung dan staf yang melewati <strong>1 bulan (30 hari)</strong> otomatis dibersihkan oleh sistem untuk menjaga privasi & menghemat kapasitas storage database.
+                </p>
+              </div>
+            </div>
+            <span className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-brand/30 bg-white px-3 py-1.5 font-semibold text-brand text-xs shadow-xs">
+              <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
+              Auto-Purge 30 Hari Aktif
+            </span>
           </div>
 
           <section className="card overflow-hidden">
@@ -648,48 +683,48 @@ export function UsersManagement() {
               <EmptyState
                 icon={History}
                 title="Riwayat login belum tersedia"
-                description="Aktivitas login terapis dan admin akan otomatis tercatat di sini."
+                description="Aktivitas login terapis dan admin dalam 30 hari terakhir akan otomatis tercatat di sini."
               />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[700px] text-left text-sm">
-                  <thead className="bg-canvas/70 text-xs font-bold tracking-wide text-muted uppercase">
+                  <thead className="bg-canvas/70 text-xs font-bold tracking-wide text-muted uppercase border-b border-line">
                     <tr>
-                      <th className="px-5 py-3">Waktu & Tanggal</th>
-                      <th className="px-5 py-3">Username & Akun</th>
-                      <th className="px-5 py-3">Peran</th>
-                      <th className="px-5 py-3">Status</th>
-                      <th className="px-5 py-3">IP Address / Jaringan</th>
-                      <th className="px-5 py-3">Keterangan</th>
+                      <th className="px-5 py-3.5 whitespace-nowrap">Waktu & Tanggal</th>
+                      <th className="px-5 py-3.5 whitespace-nowrap">Username & Akun</th>
+                      <th className="px-5 py-3.5 whitespace-nowrap">Peran</th>
+                      <th className="px-5 py-3.5 whitespace-nowrap">Status</th>
+                      <th className="px-5 py-3.5 whitespace-nowrap">IP Address / Jaringan</th>
+                      <th className="px-5 py-3.5 whitespace-nowrap">Keterangan</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
                     {filteredLogs.map((l) => (
                       <tr key={l.id} className="transition hover:bg-brand-light/30">
-                        <td className="px-5 py-3.5 text-xs font-medium text-navy">
+                        <td className="px-5 py-3.5 text-xs font-medium text-navy whitespace-nowrap">
                           {formatDate(l.timestamp)}
                         </td>
-                        <td className="px-5 py-3.5">
+                        <td className="px-5 py-3.5 whitespace-nowrap">
                           <p className="font-mono text-xs font-bold text-navy">@{l.username}</p>
                           {l.fullName && <p className="text-xs text-muted">{l.fullName}</p>}
                         </td>
-                        <td className="px-5 py-3.5">
-                          <Badge tone={l.role === "admin" ? "warning" : "brand"}>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <Badge tone={l.role === "admin" ? "warning" : "brand"} className="whitespace-nowrap font-semibold">
                             {l.role === "admin" ? "Administrator" : "Terapis Wicara"}
                           </Badge>
                         </td>
-                        <td className="px-5 py-3.5">
+                        <td className="px-5 py-3.5 whitespace-nowrap">
                           {l.status === "success" ? (
-                            <Badge tone="success">
+                            <Badge tone="success" className="whitespace-nowrap font-semibold">
                               <CheckCircle2 className="h-3 w-3" /> Berhasil
                             </Badge>
                           ) : (
-                            <Badge tone="danger">
+                            <Badge tone="danger" className="whitespace-nowrap font-semibold">
                               <AlertCircle className="h-3 w-3" /> Gagal
                             </Badge>
                           )}
                         </td>
-                        <td className="px-5 py-3.5 font-mono text-xs text-muted">{l.ipAddress}</td>
+                        <td className="px-5 py-3.5 font-mono text-xs text-muted whitespace-nowrap">{l.ipAddress}</td>
                         <td className="px-5 py-3.5 text-xs text-muted">{l.message || "-"}</td>
                       </tr>
                     ))}
