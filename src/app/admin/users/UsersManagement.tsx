@@ -150,8 +150,7 @@ export function UsersManagement() {
     const list = users ?? [];
     return {
       total: list.length,
-      therapists: list.filter((u) => u.accountType === "therapist").length,
-      students: list.filter((u) => u.accountType === "student").length,
+      therapists: list.filter((u) => u.accountType === "therapist" || u.accountType === "student").length,
       admins: list.filter((u) => u.accountType === "admin").length,
     };
   }, [users]);
@@ -387,11 +386,10 @@ export function UsersManagement() {
       {activeTab === "users" && (
         <div className="space-y-6">
           {/* Metrik Akun */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <StatCard icon={Users} label="Total Akun" value={userStats.total} tone="navy" delay={0} />
             <StatCard icon={Stethoscope} label="Terapis Wicara" value={userStats.therapists} tone="brand" delay={50} />
-            <StatCard icon={User} label="Mahasiswa" value={userStats.students} tone="brand" delay={100} />
-            <StatCard icon={Shield} label="Administrator" value={userStats.admins} tone="warning" delay={150} />
+            <StatCard icon={Shield} label="Administrator" value={userStats.admins} tone="warning" delay={100} />
           </div>
 
           {/* Filter & Tabel Akun */}
@@ -405,7 +403,7 @@ export function UsersManagement() {
                     id="search-users"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Cari nama, username, email..."
+                    placeholder="Cari nama atau username..."
                     className="input py-2 pl-9"
                   />
                 </label>
@@ -419,7 +417,6 @@ export function UsersManagement() {
                 >
                   <option value="all">Semua Peran</option>
                   <option value="therapist">Terapis Wicara</option>
-                  <option value="student">Mahasiswa</option>
                   <option value="admin">Administrator</option>
                 </select>
               </div>
@@ -741,7 +738,7 @@ export function UsersManagement() {
                 <input
                   type="text"
                   required
-                  placeholder="Contoh: Rina Kusuma, A.Md.Kes"
+                  placeholder="Masukkan nama lengkap & gelar"
                   value={addFullName}
                   onChange={(e) => setAddFullName(e.target.value)}
                   className="input"
@@ -758,7 +755,7 @@ export function UsersManagement() {
                     <input
                       type="text"
                       required
-                      placeholder="terapis.rina"
+                      placeholder="Masukkan username"
                       value={addUsername}
                       onChange={(e) => setAddUsername(e.target.value.toLowerCase().replace(/\s+/g, "."))}
                       className="input pl-7 font-mono text-xs font-semibold"
@@ -774,7 +771,7 @@ export function UsersManagement() {
                     <input
                       type="text"
                       required
-                      placeholder="Masukkan kata sandi awal"
+                      placeholder="Masukkan kata sandi"
                       value={addPassword}
                       onChange={(e) => setAddPassword(e.target.value)}
                       className="input pl-8 font-mono text-xs"
@@ -784,20 +781,9 @@ export function UsersManagement() {
               </div>
 
               <div>
-                <label className="label">Email Resmi (Opsional)</label>
-                <input
-                  type="email"
-                  placeholder={addUsername ? `${addUsername}@flunify.id` : "nama@poltekkes-solo.ac.id"}
-                  value={addEmail}
-                  onChange={(e) => setAddEmail(e.target.value)}
-                  className="input text-xs"
-                />
-              </div>
-
-              <div>
                 <label className="label">Peran Pengguna</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(["therapist", "student", "admin"] as AccountType[]).map((type) => {
+                <div className="grid grid-cols-2 gap-2">
+                  {(["therapist", "admin"] as AccountType[]).map((type) => {
                     const active = addAccountType === type;
                     const meta = ROLE_LABELS[type];
                     return (
@@ -879,6 +865,7 @@ export function UsersManagement() {
                 <input
                   type="text"
                   required
+                  placeholder="Masukkan nama lengkap & gelar"
                   value={editFullName}
                   onChange={(e) => setEditFullName(e.target.value)}
                   className="input"
@@ -895,6 +882,7 @@ export function UsersManagement() {
                     <input
                       type="text"
                       required
+                      placeholder="Masukkan username"
                       value={editUsername}
                       onChange={(e) => setEditUsername(e.target.value.toLowerCase().replace(/\s+/g, "."))}
                       className="input pl-7 font-mono text-xs font-semibold"
@@ -908,25 +896,14 @@ export function UsersManagement() {
                     <KeyRound className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 h-3.5 w-3.5 text-muted" />
                     <input
                       type="text"
-                      placeholder="Masukkan sandi baru"
+                      placeholder="Masukkan kata sandi baru (opsional)"
                       value={editPassword}
                       onChange={(e) => setEditPassword(e.target.value)}
                       className="input pl-8 font-mono text-xs"
                     />
                   </div>
-                  <p className="mt-1 text-[10px] text-muted">Biarkan jika tidak ingin mengubah password.</p>
+                  <p className="mt-1 text-[10px] text-muted">Biarkan kosong jika tidak ingin mengubah password.</p>
                 </div>
-              </div>
-
-              <div>
-                <label className="label">Email Akun</label>
-                <input
-                  type="email"
-                  required
-                  value={editEmail}
-                  onChange={(e) => setEditEmail(e.target.value)}
-                  className="input text-xs"
-                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -938,7 +915,6 @@ export function UsersManagement() {
                     className="input text-xs"
                   >
                     <option value="therapist">Terapis Wicara</option>
-                    <option value="student">Mahasiswa Praktik</option>
                     <option value="admin">Administrator</option>
                   </select>
                 </div>
