@@ -66,19 +66,28 @@ export const demoRepository: Repository = {
 
   async listUsers() {
     const rawUsers = read<ManagedUser[]>(KEYS.users, SEED_USERS);
-    // Otomatis migrasikan peran 'student' menjadi 'therapist'
+    // Otomatis migrasikan peran 'student' menjadi 'therapist' dan pastikan username selalu terdefinisi
     let migrated = false;
-    const users = rawUsers.map((u) => {
-      if ((u.accountType as string) === "student") {
+    const users = (rawUsers ?? []).map((u) => {
+      const email = u.email || "";
+      const baseUsername = u.username || (email ? email.split("@")[0] : `user.${u.id}`);
+      const isStudent = (u.accountType as string) === "student";
+
+      if (isStudent || !u.username) {
         migrated = true;
+        const cleanUsername = baseUsername.replace(/\.mhs$/, ".wicara");
+        const cleanEmail = email ? email.replace(/\.mhs@/, ".wicara@") : `${cleanUsername}@flunify.id`;
         return {
           ...u,
+          username: cleanUsername,
+          email: cleanEmail,
           accountType: "therapist" as const,
-          username: u.username.replace(/\.mhs$/, ".wicara"),
-          email: u.email.replace(/\.mhs@/, ".wicara@"),
         };
       }
-      return u;
+      return {
+        ...u,
+        username: baseUsername,
+      };
     });
 
     if (migrated) {
@@ -97,10 +106,10 @@ export const demoRepository: Repository = {
     const cleanUsername = username.trim().toLowerCase();
     const finalEmail = (email?.trim() || `${cleanUsername}@flunify.id`).toLowerCase();
 
-    if (users.some((u) => u.username.toLowerCase() === cleanUsername)) {
+    if (users.some((u) => (u.username ?? "").toLowerCase() === cleanUsername)) {
       throw new Error(`Username '${cleanUsername}' sudah digunakan.`);
     }
-    if (users.some((u) => u.email.toLowerCase() === finalEmail)) {
+    if (users.some((u) => (u.email ?? "").toLowerCase() === finalEmail)) {
       throw new Error(`Email '${finalEmail}' sudah digunakan.`);
     }
 
@@ -127,7 +136,7 @@ export const demoRepository: Repository = {
 
     if (updates.username) {
       const cleanUsername = updates.username.trim().toLowerCase();
-      if (users.some((u) => u.id !== id && u.username.toLowerCase() === cleanUsername)) {
+      if (users.some((u) => u.id !== id && (u.username ?? "").toLowerCase() === cleanUsername)) {
         throw new Error(`Username '${cleanUsername}' sudah digunakan pengguna lain.`);
       }
     }
