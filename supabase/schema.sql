@@ -210,38 +210,177 @@ drop policy if exists "login_history_admin_select" on public.login_history;
 create policy "login_history_admin_select" on public.login_history for select to authenticated using (public.is_admin());
 
 -- =====================================================================
--- Storage: bucket privat untuk sampel audio
--- Path file: {user_id}/{assessment_id}.webm
+-- Storage: Bucket untuk sampel audio
 -- =====================================================================
 insert into storage.buckets (id, name, public)
-values ('audio_samples', 'audio_samples', false)
-on conflict (id) do nothing;
+values ('audio_samples', 'audio_samples', true)
+on conflict (id) do update set public = true;
 
-drop policy if exists "audio_upload_own_folder" on storage.objects;
-create policy "audio_upload_own_folder" on storage.objects for insert to authenticated
-  with check (bucket_id = 'audio_samples' and (storage.foldername(name))[1] = auth.uid()::text);
+drop policy if exists "audio_upload_policy" on storage.objects;
+create policy "audio_upload_policy" on storage.objects for insert to authenticated
+  with check (bucket_id = 'audio_samples');
 
-drop policy if exists "audio_read_own_or_admin" on storage.objects;
-create policy "audio_read_own_or_admin" on storage.objects for select to authenticated
-  using (bucket_id = 'audio_samples'
-         and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin()));
+drop policy if exists "audio_select_policy" on storage.objects;
+create policy "audio_select_policy" on storage.objects for select to authenticated, anon
+  using (bucket_id = 'audio_samples');
+
+drop policy if exists "audio_delete_policy" on storage.objects;
+create policy "audio_delete_policy" on storage.objects for delete to authenticated
+  using (bucket_id = 'audio_samples');
 
 -- =====================================================================
--- KREDENSIAL BAWAAN SISTEM FLUNIFY:
--- 1. Mode Terapis:
---    Username: terapis.wicara
---    Password: Terapis@Flunify2026
---    Email Supabase: terapis.wicara@flunify.id
---
--- 2. Mode Administrator:
---    Username: aku.admin
---    Password: Poltekkes@Admin2026
---    Email Supabase: aku.admin@flunify.id
---
--- Menjadikan akun sebagai ADMIN di Supabase Auth:
---   update auth.users
---      set raw_app_meta_data = raw_app_meta_data || '{"role":"admin"}'::jsonb
---    where email = 'aku.admin@flunify.id';
---   update public.profiles set account_type = 'admin' where email = 'aku.admin@flunify.id';
--- Pengguna perlu logout & login ulang agar JWT memuat role admin baru.
+-- SEED OTOMATIS: Akun Auth Supabase (Terapis & Admin)
 -- =====================================================================
+create extension if not exists pgcrypto;
+
+do $$
+declare
+  therapist_uid uuid := '11111111-1111-1111-1111-111111111111';
+  admin_uid     uuid := '22222222-2222-2222-2222-222222222222';
+begin
+  -- 1. Akun Terapis Wicara (terapis.wicara@flunify.id / Terapis@Flunify2026)
+  if not exists (select 1 from auth.users where email = 'terapis.wicara@flunify.id') then
+    insert into auth.users (
+      id, instance_id, email, encrypted_password, email_confirmed_at,
+      raw_app_meta_data, raw_user_meta_data, role, aud, created_at, updated_at
+    ) values (
+      therapist_uid, '00000000-0000-0000-0000-000000000000',
+      'terapis.wicara@flunify.id',
+      crypt('Terapis@Flunify2026', gen_salt('bf')),
+      now(),
+      '{"provider":"email","providers":["email"],"role":"therapist"}'::jsonb,
+      '{"full_name":"Amanda Pratiwi, A.Md.Kes","username":"terapis.wicara","title":"Terapis Wicara"}'::jsonb,
+      'authenticated', 'authenticated', now(), now()
+    );
+  else
+    update auth.users
+       set encrypted_password = crypt('Terapis@Flunify2026', gen_salt('bf')),
+           email_confirmed_at = coalesce(email_confirmed_at, now()),
+           raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"provider":"email","providers":["email"],"role":"therapist"}'::jsonb,
+           raw_user_meta_data = coalesce(raw_user_meta_data, '{}'::jsonb) || '{"full_name":"Amanda Pratiwi, A.Md.Kes","username":"terapis.wicara","title":"Terapis Wicara"}'::jsonb
+     where email = 'terapis.wicara@flunify.id';
+  end if;
+
+  -- 2. Akun Administrator Sistem (aku.admin@flunify.id / Poltekkes@Admin2026)
+  if not exists (select 1 from auth.users where email = 'aku.admin@flunify.id') then
+    insert into auth.users (
+      id, instance_id, email, encrypted_password, email_confirmed_at,
+      raw_app_meta_data, raw_user_meta_data, role, aud, created_at, updated_at
+    ) values (
+      admin_uid, '00000000-0000-0000-0000-000000000000',
+      'aku.admin@flunify.id',
+      crypt('Poltekkes@Admin2026', gen_salt('bf')),
+      now(),
+      '{"provider":"email","providers":["email"],"role":"admin"}'::jsonb,
+      '{"full_name":"Admin Sistem Poltekkes","username":"aku.admin","title":"Administrator Sistem"}'::jsonb,
+      'authenticated', 'authenticated', now(), now()
+    );
+  else
+    update auth.users
+       set encrypted_password = crypt('Poltekkes@Admin2026', gen_salt('bf')),
+           email_confirmed_at = coalesce(email_confirmed_at, now()),
+           raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"provider":"email","providers":["email"],"role":"admin"}'::jsonb,
+           raw_user_meta_data = coalesce(raw_user_meta_data, '{}'::jsonb) || '{"full_name":"Admin Sistem Poltekkes","username":"aku.admin","title":"Administrator Sistem"}'::jsonb
+     where email = 'aku.admin@flunify.id';
+  end if;
+
+  -- 3. Sinkronkan ke auth.identities untuk GoTrue
+  insert into auth.identities (id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at)
+  select
+    u.id::text,
+    u.id,
+    json_build_object('sub', u.id::text, 'email', u.email),
+    'email',
+    u.email,
+    now(),
+    now(),
+    now()
+  from auth.users u
+  where u.email in ('terapis.wicara@flunify.id', 'aku.admin@flunify.id')
+    and not exists (select 1 from auth.identities i where i.user_id = u.id);
+
+  -- 4. Sinkronkan ke public.profiles
+  insert into public.profiles (id, full_name, username, email, account_type, status)
+  select
+    u.id,
+    coalesce(u.raw_user_meta_data ->> 'full_name', split_part(u.email, '@', 1)),
+    coalesce(u.raw_user_meta_data ->> 'username', split_part(u.email, '@', 1)),
+    u.email,
+    case when (u.raw_app_meta_data ->> 'role') = 'admin' then 'admin' else 'therapist' end,
+    'active'
+  from auth.users u
+  where u.email in ('terapis.wicara@flunify.id', 'aku.admin@flunify.id')
+  on conflict (id) do update
+  set full_name = excluded.full_name,
+      username = excluded.username,
+      email = excluded.email,
+      account_type = excluded.account_type,
+      status = 'active';
+
+end $$;
+
+-- =====================================================================
+-- SEED DATA AWAL: Klien & Asesmen Percontohan (Table Editor Terisi)
+-- =====================================================================
+do $$
+declare
+  t_id uuid;
+  c1_id uuid;
+  c2_id uuid;
+  c3_id uuid;
+  a1_id uuid := 'aaaaaaaa-1111-1111-1111-111111111111';
+  a2_id uuid := 'aaaaaaaa-2222-2222-2222-222222222222';
+  a3_id uuid := 'aaaaaaaa-3333-3333-3333-333333333333';
+begin
+  select id into t_id from auth.users where email = 'terapis.wicara@flunify.id' limit 1;
+
+  if t_id is not null then
+    -- Clients percontohan
+    insert into public.clients (client_code, age)
+    values ('C001', 8)
+    on conflict (client_code) do update set age = excluded.age
+    returning id into c1_id;
+
+    insert into public.clients (client_code, age)
+    values ('C002', 14)
+    on conflict (client_code) do update set age = excluded.age
+    returning id into c2_id;
+
+    insert into public.clients (client_code, age)
+    values ('C003', 6)
+    on conflict (client_code) do update set age = excluded.age
+    returning id into c3_id;
+
+    if c1_id is null then select id into c1_id from public.clients where client_code = 'C001'; end if;
+    if c2_id is null then select id into c2_id from public.clients where client_code = 'C002'; end if;
+    if c3_id is null then select id into c3_id from public.clients where client_code = 'C003'; end if;
+
+    -- Asesmen percontohan
+    insert into public.assessments (id, client_id, therapist_id, assessment_date, case_history, therapist_notes, total_syllables, stuttered_syllables)
+    values 
+      (a1_id, c1_id, t_id, current_date - 5, 'Keluhan gagap mulai muncul usia 5 tahun, meningkat saat berbicara di depan kelas.', 'Menunjukkan perbaikan pada tugas membaca santai.', 320, 24),
+      (a2_id, c2_id, t_id, current_date - 3, 'Gagap berupa blocking dan pemanjangan suara saat gugup atau menjawab pertanyaan guru.', 'Perlu latihan kontrol pernapasan diafragma dan teknik prolongation.', 280, 14),
+      (a3_id, c3_id, t_id, current_date - 1, 'Pengulangan suku kata awal kata cukup sering pada percakapan spontan.', 'Responsif terhadap pendekatan penguatan kelancaran bicara.', 300, 33)
+    on conflict (id) do nothing;
+
+    -- Observasi tugas bicara & ketidaklancaran
+    insert into public.observations (assessment_id, category, label)
+    values
+      (a1_id, 'speech_task', 'Bicara spontan'),
+      (a1_id, 'speech_task', 'Membaca'),
+      (a1_id, 'disfluency', 'Pengulangan bunyi/suku kata'),
+      (a1_id, 'disfluency', 'Perilaku penyerta'),
+      (a2_id, 'speech_task', 'Menjawab pertanyaan'),
+      (a2_id, 'disfluency', 'Blocking'),
+      (a2_id, 'disfluency', 'Pemanjangan bunyi (prolongation)'),
+      (a3_id, 'speech_task', 'Bercerita'),
+      (a3_id, 'disfluency', 'Pengulangan kata utuh'),
+      (a3_id, 'disfluency', 'Interjeksi / jeda')
+    on conflict do nothing;
+  end if;
+end $$;
+
+-- Izin schema public
+grant usage on schema public to anon, authenticated;
+grant all on all tables in schema public to anon, authenticated;
+grant all on all sequences in schema public to anon, authenticated;

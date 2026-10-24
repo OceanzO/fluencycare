@@ -31,14 +31,14 @@ export function userFromSupabase(user: User): AppUser {
   };
 }
 
-/** Mode Demo bebas beralih peran; di Supabase hanya akun admin yang boleh masuk Mode Admin. */
-export function canUseRole(user: AppUser, mode: AuthMode, role: Role): boolean {
-  return mode === "demo" || role === "therapist" || user.role === "admin";
+/** Pemisahan peran tegas: Terapis hanya boleh masuk sebagai terapis, Admin hanya sebagai admin. */
+export function canUseRole(user: AppUser, _mode: AuthMode, role: Role): boolean {
+  return user.role === role;
 }
 
 export function resolveActiveRole(user: AppUser, mode: AuthMode, cookieValue: string | undefined): Role {
   const wanted: Role = isRole(cookieValue) ? cookieValue : user.role;
-  return canUseRole(user, mode, wanted) ? wanted : "therapist";
+  return canUseRole(user, mode, wanted) ? wanted : user.role;
 }
 
 /** Hanya izinkan redirect internal (mencegah open redirect). */

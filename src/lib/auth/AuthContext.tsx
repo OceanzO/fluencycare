@@ -95,8 +95,8 @@ export function AuthProvider({ initialSession, children }: { initialSession: Ses
             return {
               error:
                 role === "admin"
-                  ? "Akun ini tidak memiliki hak akses Administrator."
-                  : "Akun ini tidak memiliki hak akses Terapis.",
+                  ? "Akun ini adalah Terapis Wicara. Silakan klik tab 'Terapis' di atas untuk masuk."
+                  : "Akun ini adalah Administrator. Silakan klik tab 'Admin' di atas untuk masuk.",
             };
           }
           await demoRepository.recordLoginLog?.({
@@ -175,6 +175,7 @@ export function AuthProvider({ initialSession, children }: { initialSession: Ses
         return { error: "Username atau kata sandi tidak valid. Silakan periksa kembali." };
       }
 
+      // Validasi ketat: Terapis hanya boleh masuk di tab Terapis, Admin hanya di tab Admin
       if (role === "admin" && matchedRole !== "admin") {
         await demoRepository.recordLoginLog?.({
           username: trimmed,
@@ -184,7 +185,19 @@ export function AuthProvider({ initialSession, children }: { initialSession: Ses
           userAgent: clientUA,
           message: "Akses ditolak: akun bukan admin",
         });
-        return { error: "Akun ini tidak memiliki hak akses Administrator." };
+        return { error: "Akun ini adalah Terapis Wicara. Silakan klik tab 'Terapis' di atas untuk masuk." };
+      }
+
+      if (role === "therapist" && matchedRole !== "therapist") {
+        await demoRepository.recordLoginLog?.({
+          username: trimmed,
+          role,
+          status: "failed",
+          ipAddress: "127.0.0.1 (Lokal)",
+          userAgent: clientUA,
+          message: "Akses ditolak: akun bukan terapis",
+        });
+        return { error: "Akun ini adalah Administrator. Silakan klik tab 'Admin' di atas untuk masuk." };
       }
 
       await demoRepository.recordLoginLog?.({
